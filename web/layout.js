@@ -62,27 +62,28 @@
     document.body.classList.add('wf-dashboard');
     const oldSide=$('[side]'), chartRoot=$('[main]');
     const dashboard=h('div','wf-dashboard-content');
-    const intro=h('div','wf-intro');intro.innerHTML='<div><span class="wf-eyebrow">A little patience. A better beer.</span><h1>Fermentation overview</h1><p id="wf-live-note">Waiting for your controller.</p></div><a class="wf-button wf-primary" href="/control.htm">Manage fermentation <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 19 19 5M6 5h13v13"/></svg></a>';dashboard.append(intro);
+    const intro=h('div','wf-intro');intro.innerHTML='<div><span class="wf-eyebrow">Batch monitoring</span><h1>Fermentation overview</h1><p id="wf-live-note">Waiting for your controller.</p></div><a class="wf-button wf-primary" href="/control.htm">Manage fermentation <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 19 19 5M6 5h13v13"/></svg></a>';dashboard.append(intro);
     const metrics=h('div','wf-metrics');
-    metrics.append(metric('Beer temperature','#lcdBeerTemp','#lcdBeerSet','Target','wf-accent'),metric('Chamber temperature','#lcdFridgeTemp','#lcdFridgeSet','Chamber target'),metric('Specific gravity','#gravity-sg',null,'Tap reading to enter gravity'),metric('Room temperature','#lcdRoomTemp',null,'Ambient conditions'));
+    metrics.append(metric('Beer temperature','#lcdBeerTemp','#lcdBeerSet','Target','wf-accent'),metric('Chamber temperature','#lcdFridgeTemp','#lcdFridgeSet','Chamber target'),metric('Specific gravity','#gravity-sg',null,'Enter a gravity reading'),metric('Room temperature','#lcdRoomTemp',null,'Ambient conditions'));
     dashboard.append(metrics);
     const workspace=h('div','wf-workspace');
+    const main=h('div','wf-main-column');workspace.append(main);
     const chart=card('Fermentation history','Beer · chamber · gravity');chart.classList.add('wf-history');
     const toolbar=h('div','wf-chart-toolbar');toolbar.innerHTML='<div class="wf-time-ranges" aria-label="Chart time range"><button type="button" data-range="24">24 hours</button><button type="button" data-range="72">3 days</button><button type="button" data-range="all" aria-pressed="true">All history</button></div><span id="wf-history-status" class="wf-muted">Waiting for recorded data</span>';chart.append(toolbar);
     chartRoot.removeAttribute('main');chartRoot.className='wf-chart-content';chart.append(chartRoot);
-    const empty=h('div','wf-chart-empty');empty.id='wf-chart-empty';empty.innerHTML='<span class="wf-empty-icon" aria-hidden="true">⌁</span><strong>Your fermentation story starts here</strong><p>Recorded temperatures and gravity will appear here.<br>Enable a log to keep the full history.</p><a class="wf-button wf-secondary" href="/logging.htm">Set up logging</a>';chart.append(empty);
-    workspace.append(chart);
-    const right=h('div','wf-rail');const control=card('Temperature control','');
+    const empty=h('div','wf-chart-empty');empty.id='wf-chart-empty';empty.innerHTML='<span class="wf-empty-icon" aria-hidden="true">⌁</span><strong>No recorded history</strong><p>Recorded temperatures and gravity will appear here.<br>Enable a log to keep the full history.</p><a class="wf-button wf-secondary" href="/logging.htm">Set up logging</a>';chart.append(empty);
+    main.append(chart);
+    const right=h('div','wf-rail');const control=card('Temperature control','');control.classList.add('wf-control-card');
     const activity=h('div','wf-activity');activity.innerHTML='<span class="wf-indicator"></span><strong id="wf-activity">Waiting for controller</strong><span id="wf-last-update">No readings received</span>';control.append(activity);
     const mode=h('div','wf-control-mode');mode.append(h('span','wf-eyebrow','Current mode'));move('#lcdControlMode',mode);control.append(mode);
-    const form=h('form','wf-quick-control');form.id='wf-quick-control';form.innerHTML='<label for="wf-mode">Set control mode</label><select id="wf-mode"><option value="b">Beer constant</option><option value="f">Chamber constant</option><option value="o">Control off</option></select><label for="wf-target" id="wf-target-label">Target temperature <span id="wf-unit">°C</span></label><div class="wf-target-input"><input id="wf-target" type="number" step="0.1" inputmode="decimal" required placeholder="e.g. 20.0"><span aria-hidden="true">°</span></div><button type="submit" class="wf-button wf-primary" data-requires-controller disabled>Apply to controller</button><p class="wf-muted">Use Profiles for scheduled ramps and gravity-based stages.</p>';control.append(form);
+    const form=h('form','wf-quick-control');form.id='wf-quick-control';form.innerHTML='<label for="wf-mode">Set control mode</label><select id="wf-mode"><option value="b">Beer constant</option><option value="f">Chamber constant</option><option value="o">Control off</option></select><label for="wf-target" id="wf-target-label">Target temperature <span id="wf-unit">°C</span></label><div class="wf-target-input"><input id="wf-target" type="number" step="0.1" inputmode="decimal" required placeholder="e.g. 20.0"></div><button type="submit" class="wf-button wf-primary" data-requires-controller disabled>Apply to controller</button><p class="wf-muted">Scheduled changes are managed in Profiles.</p>';control.append(form);
     const details=h('dl','wf-controller-details');details.innerHTML='<div><dt>Beer / target difference</dt><dd id="wf-error-value">—</dd></div><div><dt>Control algorithm</dt><dd>BrewPi PID</dd></div><div><dt>Recording</dt><dd id="wf-log-name">Not recording</dd></div><div><dt>WiFi signal</dt><dd id="wf-signal">—</dd></div>';control.append(details);right.append(control);
-    const profile=card('Fermentation profile');profile.innerHTML+='<div id="wf-profile-summary" class="wf-profile-summary"><p class="wf-muted">Loading saved schedule…</p></div><a class="wf-text-link" href="/control.htm">Edit profile <span aria-hidden="true">→</span></a>';right.append(profile);workspace.append(right);dashboard.append(workspace);
+    const profile=card('Fermentation profile');profile.classList.add('wf-profile-card');const count=h('span','wf-muted');count.id='wf-profile-count';profile.querySelector('.wf-card-heading').append(count);profile.innerHTML+='<div id="wf-profile-summary" class="wf-profile-summary"><p class="wf-muted">Loading saved schedule…</p></div><a class="wf-text-link" href="/control.htm">Edit profile <span aria-hidden="true">→</span></a>';right.append(profile);workspace.append(right);dashboard.append(workspace);
     const instruments=card('Batch insights','Gravity, sensors & auxiliary controls');instruments.classList.add('wf-insights');const grid=h('div','wf-instrument-grid');
     // Keep original panels, calibration dialogs, and DOM IDs for upstream integrations.
     oldSide.querySelectorAll('.data-pane').forEach(panel=>{if(panel.id==='status-pane')return;grid.append(panel);});
     const status=$('#status-pane');const preserve=h('div','wf-preserved');preserve.hidden=true;preserve.append(status);dashboard.append(preserve);
-    instruments.append(grid);dashboard.append(instruments);viewport.replaceChildren(dashboard);
+    instruments.append(grid);main.append(instruments);viewport.replaceChildren(dashboard);
     form.addEventListener('submit', event=>{
       event.preventDefault();if(!live()||!validConstants()||state.pending){notice('Wait for fresh controller readings before applying a change.',true);return;}
       const mode=$('#wf-mode').value,target=Number($('#wf-target').value),key=mode==='b'?'beerSet':'fridgeSet';
@@ -90,7 +91,7 @@
       const command=mode==='o'?'j{mode:o}':`j{mode:${mode}, ${key}:${target}}`;
       BWF.send(command);state.pending={mode,key,target,timer:setTimeout(()=>{state.pending=null;notice('No confirmation received. Check the controller before retrying.',true);connection();},10000)};connection();notice('Change sent. Waiting for controller confirmation…');
     });
-    $('#wf-mode').addEventListener('change',()=>{const off=$('#wf-mode').value==='o';$('#wf-target').disabled=off;$('#wf-target').required=!off;$('#wf-target-label').textContent=off?'No temperature target':`Target temperature (°${state.constants?.tempFormat||'C'})`;});
+    $('#wf-mode').addEventListener('change',()=>{const off=$('#wf-mode').value==='o';$('#wf-target').disabled=off;$('#wf-target').required=!off;$('#wf-target-label').firstChild.textContent=off?'No temperature target':'Target temperature ';$('#wf-unit').hidden=off;});
     toolbar.querySelectorAll('[data-range]').forEach(button=>button.addEventListener('click',()=>{
       const graph=window.BChart?.chart?.chart;if(!graph){notice('No recorded history to display yet.');return;}
       const hours=button.dataset.range;const last=graph.getValue(graph.numRows()-1,0);graph.updateOptions({dateWindow:hours==='all'?null:[last-Number(hours)*3600000,last]});
@@ -98,7 +99,7 @@
     }));
     fetch('/tschedule').then(response=>{if(!response.ok)throw Error();return response.json();}).then(p=>{
       const el=$('#wf-profile-summary');el.replaceChildren();if(!p.t?.length){el.append(h('p','wf-muted','No saved schedule. Create a profile to guide your next batch.'));return;}
-      el.append(h('strong','',`${p.t.length} scheduled stages`));const list=h('ol','wf-profile-steps');p.t.forEach(stage=>{const li=h('li','');li.append(h('span','',stage.c==='r'?'Temperature ramp':`${stage.t}°${p.u} hold`),h('small','',`${stage.d} days${stage.c!=='t'&&stage.c!=='r'?' · conditional':''}`));list.append(li);});el.append(list);
+      $('#wf-profile-count').textContent=`${p.t.length} stages`;const list=h('ol','wf-profile-steps');list.tabIndex=0;list.setAttribute('aria-label','Saved profile stages');p.t.forEach(stage=>{const li=h('li','');li.append(h('span','',stage.c==='r'?'Temperature ramp':`${stage.t}°${p.u} hold`),h('small','',`${stage.d} days${stage.c!=='t'&&stage.c!=='r'?' · conditional':''}`));list.append(li);});el.append(list);if(p.t.length>5)el.append(h('p','wf-muted wf-profile-scroll-hint','Scroll to view all stages.'));
     }).catch(()=>$('#wf-profile-summary').replaceChildren(h('p','wf-muted','Schedule unavailable. Open Profiles to view or create one.')));
   }
   function mount() {
@@ -124,6 +125,20 @@
     }
     // Readout updates keep the original bindings. Improve their missing-data defaults.
     document.querySelectorAll('.wf-metric-value>span').forEach(el=>el.setAttribute('aria-live','polite'));
+    ['gravity-sg','gravity-og'].forEach(id=>{
+      const el=document.getElementById(id);if(!el)return;
+      el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',id==='gravity-sg'?'Enter specific gravity':'Enter original gravity');
+      el.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();el.click();}});
+    });
+    // Moving panels and changing visible instruments can resize charts without a window resize.
+    if(window.ResizeObserver && key==='index'){
+      let frame;
+      const observer=new ResizeObserver(()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
+        const charts=window.BChart?.chart;[charts?.chart,charts?.pchart,charts?.hchart].forEach(chart=>chart?.resize());
+      });});
+      ['div_g','div_p','div_h'].forEach(id=>{const el=document.getElementById(id);if(el)observer.observe(el);});
+      window.addEventListener('pagehide',()=>{observer.disconnect();cancelAnimationFrame(frame);},{once:true});
+    }
     setInterval(()=>{
       connection();
       if(state.constants && $('#wf-unit')){

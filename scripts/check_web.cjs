@@ -21,10 +21,60 @@ function logFixture(){
   }
   return Buffer.concat(chunks);
 }
+const dashboardWidths=[1440,1280,1024,768,390,320];
+// Assert relationships between panels so a short chart cannot leave an empty
+// row merely because its neighbouring controller/profile column is taller.
+async function checkDashboardLayout(page,width,{history=true}={}){
+  await page.setViewportSize({width,height:1000});
+  if(history)await page.waitForFunction(()=>{
+    const container=document.querySelector('#div_g');
+    return window.BChart?.chart?.chart && Math.abs(BChart.chart.chart.width_-container.clientWidth)<=1;
+  });
+  const layout=await page.evaluate(()=>{
+    const rect=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
+    const q=selector=>document.querySelector(selector);
+    const grid=q('.wf-instrument-grid');
+    const visible=[...grid.querySelectorAll('.data-pane')].filter(el=>el.getClientRects().length);
+    const input=q('#wf-target'),label=q('#wf-target-label'),unit=q('#wf-unit');
+    return {
+      history:rect(q('.wf-history')),legend:rect(q('.chart-legend')),insights:rect(q('.wf-insights')),
+      footer:rect(q('.footer')),lastPanel:Math.max(...[...document.querySelectorAll('.wf-workspace .wf-card')].map(el=>rect(el).bottom)),
+      grid:rect(grid),gridGap:parseFloat(getComputedStyle(grid).columnGap),panels:visible.map(rect),
+      chartWidth:q('#div_g').clientWidth,canvasWidths:[...q('#div_g').querySelectorAll('canvas')].map(el=>rect(el).width),
+      input:rect(input),inputWrapper:rect(q('.wf-target-input')),label:rect(label),unit:rect(unit),unitInLabel:label.contains(unit),
+      overflow:document.documentElement.scrollWidth>innerWidth+1,
+      overflowing:[...document.querySelectorAll('body *')].filter(el=>rect(el).right>innerWidth+1).map(el=>({id:el.id,cls:el.className,right:rect(el).right})).slice(0,10)
+    };
+  });
+  const context=`Dashboard at ${width}px (${history?'recorded history':'empty history'})`;
+  assert.equal(layout.overflow,false,`${context} overflows: ${JSON.stringify(layout.overflowing)}`);
+  const insightsGap=layout.insights.top-layout.history.bottom;
+  assert.ok(insightsGap>=0 && insightsGap<=28,`${context}: ${insightsGap}px blank gap before insights`);
+  const chartTail=layout.history.bottom-layout.legend.bottom;
+  assert.ok(chartTail>=0 && chartTail<=24,`${context}: ${chartTail}px blank tail below legend`);
+  const footerGap=layout.footer.top-layout.lastPanel;
+  assert.ok(footerGap>=0 && footerGap<=40,`${context}: ${footerGap}px blank gap before footer`);
+  assert.equal(layout.panels.length,2,`${context}: expected gravity and system panels; hidden instruments must stay hidden`);
+  // Each occupied insight row fills the grid, including layouts where the two
+  // panels wrap; an unused third fixed column would fail this measurement.
+  const rows=[];
+  for(const panel of layout.panels){let row=rows.find(row=>Math.abs(row[0].top-panel.top)<1);if(!row){row=[];rows.push(row);}row.push(panel);}
+  for(const row of rows){
+    const occupied=row.reduce((sum,panel)=>sum+panel.width,0)+layout.gridGap*(row.length-1);
+    assert.ok(Math.abs(occupied-layout.grid.width)<=1,`${context}: insight row uses ${occupied}px of ${layout.grid.width}px`);
+  }
+  assert.ok(layout.inputWrapper.height-layout.input.height<=1,`${context}: target input has inherited vertical margins`);
+  assert.ok(layout.unitInLabel && layout.unit.height>0 && layout.unit.top>=layout.label.top && layout.unit.bottom<=layout.label.bottom+1,`${context}: temperature unit must remain visible in its target label`);
+  if(history){
+    assert.ok(layout.canvasWidths.length>0,`${context}: history canvas missing`);
+    for(const canvasWidth of layout.canvasWidths)assert.ok(Math.abs(canvasWidth-layout.chartWidth)<=1,`${context}: ${canvasWidth}px canvas does not fill ${layout.chartWidth}px chart`);
+  }
+}
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:'/usr/bin/chromium',args:['--no-sandbox']});
  try {
   const page=await browser.newPage({timezoneId:'Australia/Brisbane'});await page.clock.install();const errors=[];const messages=[];const writes=[];let socket;let serveHistory=true;
+  let servedProfile=profile;
   page.on('pageerror',error=>{errors.push(error.message);console.error('Browser error:',error.message)});
   page.on('dialog',dialog=>dialog.accept());
   await page.route('http://device.test/**',async route=>{
@@ -39,7 +89,7 @@ function logFixture(){
     if(name==='/chart.php')return route.fulfill({contentType:'application/octet-stream',headers:{LogOffset:'0'},body:serveHistory&&url.searchParams.get('offset')==='0'?logFixture():Buffer.alloc(0)});
     if(name==='/tschedule'){
       if(route.request().method()==='POST'){writes.push(JSON.parse(new URLSearchParams(route.request().postData()).get('data')));return reply({});}
-      return reply(profile);
+      return reply(servedProfile);
     }
     if(name==='/config')return reply({hostname:'webferment',title:'WebFerment',mac:[1,2,3,4,5,6],fid:123,frsize:4194304,fsize:4194304,fs:589824});
     if(name==='/loglist.php')return reply([]);
@@ -81,22 +131,45 @@ function logFixture(){
   await page.locator('#wf-mode').selectOption('o');await page.locator('#wf-quick-control button').click();
   assert.equal(messages.at(-1),'j{mode:o}');socket.send('A:'+JSON.stringify({...reading,md:'o'}));
   await page.waitForFunction(()=>!document.querySelector('#wf-quick-control button').disabled);
+  assert.equal(await page.locator('#wf-unit').isVisible(),false);
   // Reject an out-of-range target even if submission bypasses native browser validation.
   await page.locator('#wf-mode').selectOption('b');await page.locator('#wf-target').fill('99');
+  assert.equal(await page.locator('#wf-unit').isVisible(),true);
   const beforeInvalid=messages.length;
   await page.evaluate(()=>document.querySelector('#wf-quick-control').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
   assert.equal(messages.length,beforeInvalid);assert.match(await page.locator('#wf-toast').innerText(),/between 1 and 30/);
   // Snapshot the normal operating state, not a pending user edit.
   socket.send('A:'+JSON.stringify(reading));await page.locator('#wf-mode').selectOption('b');await page.locator('#wf-target').fill('20.0');
   await page.evaluate(()=>document.querySelector('#wf-toast').hidden=true);
-  for(const width of [1440,390]){
-    await page.setViewportSize({width,height:1000});
-    await page.waitForTimeout(150);
-    const overflow=await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+1).map(e=>({tag:e.tagName,id:e.id,cls:e.className,right:e.getBoundingClientRect().right,width:e.getBoundingClientRect().width})).slice(0,10));
-    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,`Dashboard overflow at ${width}px: ${JSON.stringify(overflow)}`);
+  for(const width of dashboardWidths){
+    await checkDashboardLayout(page,width);
     assert.ok(await page.locator('#lcdBeerTemp').isVisible());
-    await page.evaluate(()=>scrollTo(0,0));
-    await page.screenshot({path:`/tmp/webferment-${width}.png`,fullPage:true});
+    if([1440,390].includes(width)){
+      await page.evaluate(()=>scrollTo(0,0));
+      await page.screenshot({path:`/tmp/webferment-${width}.png`,fullPage:true});
+    }
+  }
+  // A container-only width change must redraw Dygraph without a window resize.
+  await page.setViewportSize({width:1440,height:1000});
+  const originalChartWidth=await page.locator('#div_g').evaluate(el=>el.clientWidth);
+  await page.locator('.wf-main-column').evaluate(el=>el.style.width='90%');
+  await page.waitForFunction(original=>document.querySelector('#div_g').clientWidth<original && Math.abs(BChart.chart.chart.width_-document.querySelector('#div_g').clientWidth)<=1,originalChartWidth);
+  await page.locator('.wf-main-column').evaluate(el=>el.style.removeProperty('width'));
+  await checkDashboardLayout(page,1440);
+  // Switching modes must retain the live unit node for later C/F updates.
+  socket.send('C:'+JSON.stringify({...constants,tempFormat:'F'}));
+  await page.waitForFunction(()=>document.querySelector('#wf-unit').textContent==='°F');
+  socket.send('C:'+JSON.stringify(constants));
+  await page.waitForFunction(()=>document.querySelector('#wf-unit').textContent==='°C');
+  // Keyboard activation keeps the original gravity-entry dialogs and handlers.
+  for(const [id,key,isOriginal] of [['gravity-sg','Enter',false],['gravity-og','Space',true]]){
+    assert.equal(await page.locator(`#${id}`).getAttribute('role'),'button');
+    assert.equal(await page.locator(`#${id}`).getAttribute('tabindex'),'0');
+    await page.locator(`#${id}`).press(key);
+    assert.ok(await page.locator('#dlg_addgravity').isVisible());
+    assert.equal(await page.evaluate(()=>window.isog),isOriginal);
+    await page.locator('#dlg_addgravity').getByRole('button',{name:'Cancel',exact:true}).click();
+    assert.equal(await page.locator('#dlg_addgravity').isVisible(),false);
   }
   socket.send('A:'+JSON.stringify({...reading,bt:-32768}));await page.waitForFunction(()=>document.querySelector('.wf-metric').classList.contains('is-unavailable'));
   assert.match(await page.locator('#lcdBeerTemp').innerText(),/--/);
@@ -107,6 +180,28 @@ function logFixture(){
   socket.close();await page.waitForFunction(()=>document.querySelector('.header .wf-connection').textContent==='Disconnected');
   assert.equal(await page.locator('#wf-quick-control button').isDisabled(),true);
   await page.clock.resume();
+  // Empty history and no saved schedule remain compact at every breakpoint.
+  serveHistory=false;servedProfile={...profile,t:[]};
+  await page.goto('http://device.test/index.htm');
+  await page.waitForFunction(()=>document.querySelector('#wf-profile-summary').textContent.includes('No saved schedule'));
+  assert.ok(await page.locator('#wf-chart-empty').isVisible());
+  for(const width of dashboardWidths)await checkDashboardLayout(page,width,{history:false});
+  // Long schedules scroll inside their card and remain reachable by keyboard.
+  serveHistory=true;servedProfile={...profile,t:[...profile.t,...profile.t]};
+  await page.goto('http://device.test/index.htm');
+  await page.waitForFunction(()=>document.querySelectorAll('#wf-profile-summary li').length===10 && window.BChart?.chart?.data.length===73);
+  await page.waitForFunction(()=>document.querySelector('#wf-chart-empty').hidden);
+  for(const width of [1440,390]){
+    await checkDashboardLayout(page,width);
+    const stages=page.locator('.wf-profile-steps');
+    const dimensions=await stages.evaluate(el=>({height:el.clientHeight,contents:el.scrollHeight}));
+    assert.ok(dimensions.height<=226 && dimensions.contents>dimensions.height,`Long profile should scroll within its card at ${width}px`);
+    await stages.focus();await stages.press('End');
+    await page.waitForFunction(()=>document.querySelector('.wf-profile-steps').scrollTop>0);
+    await stages.press('Home');
+    await page.waitForFunction(()=>document.querySelector('.wf-profile-steps').scrollTop===0);
+  }
+  servedProfile=profile;
   // Profiles retain hold/ramp, gravity, stability and save/activate behaviours.
   await page.setViewportSize({width:1440,height:1000});await page.goto('http://device.test/control.htm');
   await page.waitForFunction(()=>window.profileEditor?.rowList().length===5);
@@ -132,6 +227,6 @@ function logFixture(){
   assert.equal(await page.locator('#Kp').inputValue(),'5');assert.equal(await page.locator('#Ki').inputValue(),'0.25');assert.equal(await page.locator('#Kd').inputValue(),'-1.5');
   assert.ok(await page.locator('#advanced').isVisible());
   assert.deepEqual(errors,[]);
-  console.log('PASS: 0.5 live dashboard, binary log history, chart ranges, confirmed beer/chamber/off commands, sensor fault, stale/disconnected guards, responsive dashboard/profiles, schedule save, device discovery and retained PID tuning UI.');
+  console.log('PASS: 0.5 compact dashboard at six widths, empty/long profiles, keyboard gravity entry, container chart resizing, binary log history, chart ranges, confirmed beer/chamber/off commands, sensor fault, stale/disconnected guards, responsive profiles, schedule save, device discovery and retained PID tuning UI.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

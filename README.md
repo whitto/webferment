@@ -4,7 +4,7 @@ An ESP32-C3 Arduino fermentation controller based on **[BrewPiLess by vitotai](h
 
 ## What's new in 0.5
 
-- A dashboard with separate beer, chamber, gravity and ambient readings, recorded history, and a saved-profile summary.
+- A compact dashboard with separate beer, chamber, gravity and ambient readings, recorded history, and a saved-profile summary. History and insights flow together, while controller and profile panels use an independent column.
 - Direct beer/chamber temperature controls with controller-provided limits and confirmation from live readings. Stale or disconnected controllers disable these controls.
 - A redesigned profile workspace with a schedule preview and editable stages. Time, gravity, stability and combined stage conditions retain the BrewPiLess engine and data format.
 - A shared navigation and layout for sensors, logging, hydrometers, settings, pressure and backups. Existing device configuration, PID tuning and calibration tools remain available.
@@ -83,11 +83,11 @@ python scripts/build_web.py
 node scripts/check_web.cjs
 ```
 
-The browser integration test uses Playwright with system Chromium, simulated BrewPiLess WebSocket messages, mocked HTTP endpoints and a binary log fixture. It verifies history parsing and zoom, temperature control commands and acknowledgements, target validation, stale/disconnected states, sensor-fault display, responsive layouts, schedule save round-trips (including gravity/stability conditions), device discovery requests and the inherited PID settings panel. It does not establish physical sensor, relay, BLE, profile execution, or OTA behavior.
+The browser integration test uses Playwright with system Chromium, simulated BrewPiLess WebSocket messages, mocked HTTP endpoints and a binary log fixture. It verifies history parsing and zoom, temperature control commands and acknowledgements, target validation, stale/disconnected states, sensor-fault display, spacing and chart sizing at six viewport widths, empty/long-profile layouts, keyboard gravity entry, schedule save round-trips (including gravity/stability conditions), device discovery requests and the inherited PID settings panel. It does not establish physical sensor, relay, BLE, profile execution, or OTA behavior.
 
 ## Validation status
 
-- Passed: deterministic embedded frontend generation and the 0.5 browser integration suite, including dashboard/profile layouts at 1440px and 390px.
+- Passed: deterministic embedded frontend generation and the 0.5 browser integration suite, including dashboard layouts at 320, 390, 768, 1024, 1280 and 1440px, empty history, ten-stage profiles, and profile-editor layouts at 1440px and 390px.
 - Deferred: firmware compilation, at the user’s request. Future core installation needs network access to `downloads.arduino.cc` and `espressif.github.io`, currently denied in this cloud instance.
 - Unrun: flashing and hardware integration, because no ESP32-C3 is attached.
 
