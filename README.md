@@ -2,6 +2,19 @@
 
 An ESP32-C3 Arduino fermentation controller based on **[BrewPiLess by vitotai](https://github.com/vitotai/BrewPiLess)**, with a responsive WebBrew-inspired interface. The upstream BrewPi control algorithm, temperature profiles, sensor discovery, logging, and hydrometer integrations are retained. This is an initial derivative, not yet a hardware-validated release.
 
+## UI mockup
+
+Desktop dashboard rendered from the current interface with simulated temperature readings. No history is loaded in this mockup, so the chart is empty.
+
+![WebFerment desktop dashboard with fermentation temperatures and BrewPiLess attribution](docs/images/dashboard-desktop.png)
+
+<details>
+<summary>Mobile layout</summary>
+
+<img src="docs/images/dashboard-mobile.png" alt="WebFerment dashboard on a mobile screen" width="390">
+
+</details>
+
 ## Arduino project
 
 Open `WebFerment/WebFerment.ino` in Arduino IDE 2. Install **esp32 by Espressif Systems 2.0.17** using Boards Manager. Add this board index URL in Preferences:
