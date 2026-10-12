@@ -10,3 +10,7 @@ WebFerment is a BrewPiLess derivative targeting ESP32-C3 using the Arduino frame
 The controller, profile engine, device configuration, logging and web protocol remain upstream BrewPiLess. Changes focus on C3 compatibility and presentation.
 
 Arduino packaging: original firmware sources and embedded headers now reside under `WebFerment/src`; `WebFerment.ino` provides the sketch entry. The upstream PlatformIO configuration was removed in favour of Arduino IDE / CLI.
+
+## WebFerment 0.5
+
+The new presentation is implemented in `web/theme.css` and `web/layout.js`, around the retained BrewPiLess scripts and DOM bindings. The frontend build regenerates the English embedded headers. PID/control, compressor timing, sensor logic, profile execution and firmware web endpoints are unchanged from the previous WebFerment commit. WebFerment's UI release version is independent of BrewPiLess's protocol version.

@@ -1,17 +1,33 @@
-# WebFerment
+# WebFerment 0.5
 
-An ESP32-C3 Arduino fermentation controller based on **[BrewPiLess by vitotai](https://github.com/vitotai/BrewPiLess)**, with a responsive WebBrew-inspired interface. The upstream BrewPi control algorithm, temperature profiles, sensor discovery, logging, and hydrometer integrations are retained. This is an initial derivative, not yet a hardware-validated release.
+An ESP32-C3 Arduino fermentation controller based on **[BrewPiLess by vitotai](https://github.com/vitotai/BrewPiLess)**, with a reimagined responsive interface inspired by WebBrew. The upstream BrewPi control algorithm, temperature profiles, sensor discovery, logging, and hydrometer integrations are retained. This is an initial derivative, not yet a hardware-validated release.
+
+## What's new in 0.5
+
+- A dashboard with separate beer, chamber, gravity and ambient readings, recorded history, and a saved-profile summary.
+- Direct beer/chamber temperature controls with controller-provided limits and confirmation from live readings. Stale or disconnected controllers disable these controls.
+- A redesigned profile workspace with a schedule preview and editable stages. Time, gravity, stability and combined stage conditions retain the BrewPiLess engine and data format.
+- A shared navigation and layout for sensors, logging, hydrometers, settings, pressure and backups. Existing device configuration, PID tuning and calibration tools remain available.
+
+The BrewPi PID algorithm, output timing, compressor protection, profile executor and sensor logic are unchanged in this release. `VERSION` identifies WebFerment **0.5**; the inherited BrewPiLess protocol version stays separate for compatibility. Optional pressure/humidity features remain disabled on the default C3 build.
 
 ## UI mockup
 
-Desktop dashboard rendered from the current interface with simulated temperature readings. No history is loaded in this mockup, so the chart is empty.
+Screenshots of the actual 0.5 interface using simulated controller readings, a five-stage schedule and a BrewPiLess-format log fixture. These demonstrate the browser UI; no hardware is attached.
 
-![WebFerment desktop dashboard with fermentation temperatures and BrewPiLess attribution](docs/images/dashboard-desktop.png)
+![WebFerment 0.5 dashboard with temperature and gravity history, live readings, profile summary and controller controls](docs/images/dashboard-desktop.png)
 
 <details>
-<summary>Mobile layout</summary>
+<summary>Mobile dashboard</summary>
 
-<img src="docs/images/dashboard-mobile.png" alt="WebFerment dashboard on a mobile screen" width="390">
+<img src="docs/images/dashboard-mobile.png" alt="WebFerment 0.5 dashboard on a mobile screen" width="390">
+
+</details>
+
+<details>
+<summary>Fermentation profile editor</summary>
+
+![WebFerment 0.5 schedule preview and stage editor](docs/images/profiles-desktop.png)
 
 </details>
 
@@ -58,7 +74,7 @@ Follow the upstream WiFi provisioning workflow. The default network hostname is 
 
 ## Interface development
 
-Edit `web/theme.css`. `web/upstream` contains the original release's bundled English pages, including its existing JavaScript and protocol. `python scripts/build_web.py` injects the new navigation/style and regenerates the compressed headers in `WebFerment/src`. The Arduino CLI build script runs this automatically; run it before compiling in Arduino IDE after interface edits. This deterministic Python build avoids the upstream legacy Grunt/Ruby dependency chain. Other language assets remain upstream.
+Edit `web/theme.css` for presentation and `web/layout.js` for layout and controller-facing UI behaviour. `web/upstream` contains the original release's bundled English pages, including its existing JavaScript and protocol. `python scripts/build_web.py` injects the 0.5 navigation, style and layout adapter and regenerates the compressed headers in `WebFerment/src`. The Arduino CLI build script runs this automatically; run it before compiling in Arduino IDE after interface edits. This deterministic Python build avoids the upstream legacy Grunt/Ruby dependency chain. Other language assets remain upstream.
 
 Optional browser verification in the prepared cloud machine:
 
@@ -67,12 +83,12 @@ python scripts/build_web.py
 node scripts/check_web.cjs
 ```
 
-The browser test uses Playwright with system Chromium and simulated BrewPiLess WebSocket messages. It verifies beer/chamber temperatures and targets, navigation, desktop/mobile layout, and browser script errors. It does not establish physical sensor, relay, BLE, profile execution, or OTA behavior.
+The browser integration test uses Playwright with system Chromium, simulated BrewPiLess WebSocket messages, mocked HTTP endpoints and a binary log fixture. It verifies history parsing and zoom, temperature control commands and acknowledgements, target validation, stale/disconnected states, sensor-fault display, responsive layouts, schedule save round-trips (including gravity/stability conditions), device discovery requests and the inherited PID settings panel. It does not establish physical sensor, relay, BLE, profile execution, or OTA behavior.
 
 ## Validation status
 
-- Passed: deterministic embedded frontend generation; browser dashboard smoke test at 1440px and 390px with simulated device messages.
-- Blocked: firmware compilation, because the cloud network proxy denies Arduino board indexes. Required domains: `downloads.arduino.cc` and `espressif.github.io`. Further download hosts may be identified after access is enabled.
+- Passed: deterministic embedded frontend generation and the 0.5 browser integration suite, including dashboard/profile layouts at 1440px and 390px.
+- Deferred: firmware compilation, at the user’s request. Future core installation needs network access to `downloads.arduino.cc` and `espressif.github.io`, currently denied in this cloud instance.
 - Unrun: flashing and hardware integration, because no ESP32-C3 is attached.
 
 ## Credits and licence
